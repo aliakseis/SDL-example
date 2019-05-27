@@ -153,6 +153,9 @@
     <ClCompile Include="ffmpeg_dxva2.cpp" />
     <ClCompile Include="SDL_example.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ffmpeg_dxva2.h" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
