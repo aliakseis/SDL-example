@@ -35,10 +35,7 @@ AVPixelFormat GetHwFormat(AVCodecContext *s, const AVPixelFormat *pix_fmts)
 
 // https://github.com/Microsoft/vcpkg/issues/641
 #ifdef _DEBUG
-int test_main(int argc, char* argv[])
-{
-    return main(argc, argv);
-}
+#pragma comment(lib, "SDL2maind.lib")
 #else
 #pragma comment(lib, "SDL2main.lib")
 #endif
@@ -51,21 +48,23 @@ int main(int argc, char* argv[])
     AVCodec	*pCodec;
     AVFrame	*pFrame, *pFrameTarget;
     AVFrame *sw_frame = NULL;
-    uint8_t *out_buffer;
+    //uint8_t *out_buffer;
     AVPacket *packet;
     int y_size;
     int ret, got_picture;
     struct SwsContext *img_convert_ctx = nullptr;
 
-    char filepath[] = "e:/1.MP4";
+    const char* filepath = (argc == 2)? argv[1] : "e:/1.MP4";
     //SDL---------------------------
     int screen_w = 0, screen_h = 0;
     SDL_Window *screen;
     SDL_Renderer* sdlRenderer;
     SDL_Texture* sdlTexture;
 
+#if ( LIBAVFORMAT_VERSION_INT <= AV_VERSION_INT(58,9,100) )
     avcodec_register_all();
     av_register_all();
+#endif
     avdevice_register_all();
     pFormatCtx = avformat_alloc_context();
 
@@ -142,17 +141,20 @@ int main(int argc, char* argv[])
 
     screen_w = pCodecCtx->width;
     screen_h = pCodecCtx->height;
-    AVPixelFormat image_transf_format = AV_PIX_FMT_NV12;
+    AVPixelFormat image_transf_format = AV_PIX_FMT_YUV420P; //AV_PIX_FMT_NV12;
 
     pFrame = av_frame_alloc();
     sw_frame = av_frame_alloc();
 
     pFrameTarget = av_frame_alloc();
-    out_buffer = (unsigned char *)av_malloc(av_image_get_buffer_size(image_transf_format, screen_w, screen_h, 1));
-    av_image_fill_arrays(pFrameTarget->data, pFrameTarget->linesize, out_buffer,
-        image_transf_format, screen_w, screen_h, 1);
+    //out_buffer = (unsigned char *)av_malloc(av_image_get_buffer_size(image_transf_format, screen_w, screen_h, 1));
+    //av_image_fill_arrays(pFrameTarget->data, pFrameTarget->linesize, out_buffer,
+    //    image_transf_format, screen_w, screen_h, 1);
     pFrameTarget->width = screen_w;
     pFrameTarget->height = screen_h;
+    pFrameTarget->format = image_transf_format;
+    av_frame_get_buffer(pFrameTarget, 16);
+
     packet = (AVPacket *)av_malloc(sizeof(AVPacket));
     //Output Info-----------------------------
     printf("--------------- File Information ----------------\n");
@@ -169,7 +171,10 @@ int main(int argc, char* argv[])
         screen_w, screen_h,
         SDL_WINDOW_OPENGL);
     sdlRenderer = SDL_CreateRenderer(screen, -1, 0);
-    sdlTexture = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_NV12, SDL_TEXTUREACCESS_STREAMING, screen_w, screen_h);
+    sdlTexture = SDL_CreateTexture(sdlRenderer, 
+        SDL_PIXELFORMAT_YV12, //SDL_PIXELFORMAT_NV12,
+        SDL_TEXTUREACCESS_STREAMING, 
+        screen_w, screen_h);
 
     //SDL End----------------------
     bool quit = false;
@@ -209,7 +214,12 @@ int main(int argc, char* argv[])
                 sws_scale(img_convert_ctx, (const uint8_t* const*)sw_frame->data, sw_frame->linesize, 0, sw_frame->height,
                     pFrameTarget->data, pFrameTarget->linesize);
 
-                SDL_UpdateTexture(sdlTexture, NULL, pFrameTarget->data[0], pFrameTarget->linesize[0]);
+                //SDL_UpdateTexture(sdlTexture, NULL, pFrameTarget->data[0], pFrameTarget->linesize[0]);
+                SDL_UpdateYUVTexture(sdlTexture, nullptr,
+                    pFrameTarget->data[0], pFrameTarget->linesize[0],
+                    pFrameTarget->data[1], pFrameTarget->linesize[1],
+                    pFrameTarget->data[2], pFrameTarget->linesize[2]);
+
                 //SDL_RenderClear(sdlRenderer);
                 SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);
                 SDL_RenderPresent(sdlRenderer);
